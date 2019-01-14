@@ -1,0 +1,97 @@
+#!/usr/bin/ruby
+#
+# This tool is only used to "decrypt" the github enterprise source code.
+#
+# Run in the /data directory of the instance.
+
+require "zlib"
+require "byebug"
+
+KEY = "This obfuscation is intended to discourage GitHub Enterprise customers "+
+"from making modifications to the VM. We know this 'encryption' is easily broken. "
+
+class String
+  def unescape
+    buffer = []
+    mode = 0
+    tmp = ""
+
+    # https://github.com/ruby/ruby/blob/trunk/doc/syntax/literals.rdoc#strings
+    sequences = {
+      "a"  => 7,
+      "b"  => 8,
+      "t"  => 9,
+      "n"  => 10,
+      "v"  => 11,
+      "f"  => 12,
+      "r"  => 13,
+      "e"  => 27,
+      "s"  => 32,
+      "\"" => 34,
+      "#"  => 35,
+      "\\" => 92,
+      "{"  => 123,
+      "}"  => 125,
+    }
+
+    self.chars.each do |c|
+      if mode == 0
+        if c == "\\"
+          mode = 1
+          tmp = ""
+        else
+          buffer << c.ord
+        end
+      else
+        tmp << c
+
+        if tmp[0] == "x"
+          if tmp.length == 3
+            buffer << tmp[1..2].hex
+            mode = 0
+            tmp = ""
+            next
+          else
+            next
+          end
+        end
+
+        if tmp.length == 1 && sequences[tmp]
+          buffer << sequences[tmp]
+          mode = 0
+          tmp = ""
+          next
+        end
+
+        raise "Unknown sequences: \"\\#{tmp}\""
+      end
+    end
+
+    buffer.pack("C*")
+  end
+
+  def decrypt
+    i, plaintext = 0, ''
+
+    Zlib::Inflate.inflate(self).each_byte do |c|
+      plaintext << (c ^ KEY[i%KEY.length].ord).chr
+      i += 1
+    end
+    plaintext
+  end
+end
+
+Dir.glob("**/*.rb").each do |file|
+  header = "require \"ruby_concealer.so\"\n__ruby_concealer__ \""
+  len = header.length
+  File.open(file, "r+") do |fh|
+    if fh.read(len) == header
+      puts file
+      ciphertext = fh.read[0..-1].unescape
+      plaintext  = ciphertext.decrypt
+      fh.truncate(0)
+      fh.rewind
+      fh.write(plaintext)
+    end
+  end
+end
