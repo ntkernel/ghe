@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/local/bin/ruby
 #
 # This tool is only used to "decrypt" the github enterprise source code.
 #
@@ -82,7 +82,7 @@ class String
 end
 
 Dir.glob("**/*.rb").each do |file|
-  header = "require \"ruby_concealer.so\"\n__ruby_concealer__ \""
+  header = "__ruby_concealer__ \""
   len = header.length
   File.open(file, "r+") do |fh|
     if fh.read(len) == header
