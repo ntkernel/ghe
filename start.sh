@@ -1,5 +1,6 @@
 cp ./sources.list /etc/apt -f
 cp ./unlock /data
+chmod +x /data/unlock
 apt update
 apt install gcc -Y
 apt install make -Y
